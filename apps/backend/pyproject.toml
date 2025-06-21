@@ -1,0 +1,12 @@
+[project]
+name = "backend"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "composio==1.0.0rc2",
+    "composio-openai-agents==1.0.0rc2",
+    "fastapi>=0.115.13",
+    "supabase>=2.15.3",
+]
