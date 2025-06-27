@@ -39,7 +39,7 @@ async def process_gmail_message(message: GmailMessage, user_filter: str):
         logger.debug(f"Email labels: {message.labels}")
 
         # Log email content preview for debugging
-        body_preview = (message.text_body or message.html_body or "")[:200]
+        body_preview = (message.text_body or message.html_body or "")[:10000]
         if body_preview:
             logger.debug(f"Email body preview: {body_preview}...")
         else:
