@@ -40,10 +40,11 @@ async def create_connection(
             user_id=request.user_id,
             auth_config_id=GMAIL_AUTH_CONFIG_ID,
         )
+        # Create background task to create a trigger
+        background_tasks.add_task(create_trigger, request.user_id, connection_request)
 
         # Get the connection status directly from Composio
         connection_status = getattr(connection_request, "status", "INITIATED")
-        background_tasks.add_task(create_trigger, request.user_id, connection_request)
 
         return ConnectionResponse(
             connection_id=str(connection_request.id),
