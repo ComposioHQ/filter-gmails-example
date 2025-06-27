@@ -2,13 +2,12 @@
 
 import logging
 from datetime import datetime
-from fastapi import APIRouter, HTTPException
-from composio.types import auth_scheme
+from fastapi import APIRouter, BackgroundTasks, HTTPException
 from config import composio, supabase, GMAIL_AUTH_CONFIG_ID, initial_prompt
+from email_processor import create_trigger
 from models import (
     ConnectionRequest,
     ConnectionResponse,
-    ConnectionStatus,
     ConnectionStatusResponse,
 )
 
@@ -23,7 +22,9 @@ async def root():
 
 
 @router.post("/api/connection", response_model=ConnectionResponse)
-async def create_connection(request: ConnectionRequest):
+async def create_connection(
+    request: ConnectionRequest, background_tasks: BackgroundTasks
+):
     """
     Create a new Gmail connection for a user using Composio OAuth flow.
 
@@ -40,20 +41,9 @@ async def create_connection(request: ConnectionRequest):
             auth_config_id=GMAIL_AUTH_CONFIG_ID,
         )
 
-        # Map the connection status
-        status_map = {
-            "initiated": ConnectionStatus.INITIATED,
-            "initializing": ConnectionStatus.INITIATED,  # Map INITIALIZING to INITIATED
-            "active": ConnectionStatus.ACTIVE,
-            "failed": ConnectionStatus.FAILED,
-            "expired": ConnectionStatus.EXPIRED,
-            "deleted": ConnectionStatus.DELETED,
-        }
-
-        connection_status = status_map.get(
-            getattr(connection_request, "status", "initiated").lower(),
-            ConnectionStatus.INITIATED,
-        )
+        # Get the connection status directly from Composio
+        connection_status = getattr(connection_request, "status", "INITIATED")
+        background_tasks.add_task(create_trigger, request.user_id, connection_request)
 
         return ConnectionResponse(
             connection_id=str(connection_request.id),
@@ -82,40 +72,32 @@ async def get_connection(nano_id: str):
         # Get connected accounts for the user
         connected_account = composio.connected_accounts.get(nano_id)
 
-        # Map the connection status from Composio to our enum
-        status_map = {
-            "active": ConnectionStatus.ACTIVE,
-            "connected": ConnectionStatus.ACTIVE,  # Map CONNECTED to ACTIVE
-            "initiated": ConnectionStatus.INITIATED,
-            "initializing": ConnectionStatus.INITIATED,  # Map INITIALIZING to INITIATED
-            "failed": ConnectionStatus.FAILED,
-            "expired": ConnectionStatus.EXPIRED,
-            "deleted": ConnectionStatus.DELETED,
-        }
-
         # Extract status from the connected account object
-        composio_status = getattr(connected_account, "status", "unknown").lower()
-        
+        composio_status = getattr(connected_account, "status", "FAILED")
+
         # Also check the nested state.val.status for OAuth status
         oauth_status = None
-        if hasattr(connected_account, "state") and hasattr(connected_account.state, "val") and hasattr(connected_account.state.val, "status"):
-            oauth_status = connected_account.state.val.status.lower()
-        
+        if (
+            hasattr(connected_account, "state")
+            and hasattr(connected_account.state, "val")
+            and hasattr(connected_account.state.val, "status")
+        ):
+            oauth_status = connected_account.state.val.status
+
         # Use the OAuth status if available, otherwise use the main status
         final_status = oauth_status if oauth_status else composio_status
-        mapped_status = status_map.get(final_status, ConnectionStatus.FAILED)
 
         # Build the response
         return ConnectionStatusResponse(
             user_id=getattr(connected_account, "user_id", ""),
-            status=mapped_status,
-            connected=mapped_status == ConnectionStatus.ACTIVE,
+            status=final_status,
+            connected=final_status == "ACTIVE",
             connection_id=getattr(connected_account, "id", None),
             account_id=getattr(connected_account, "account_id", None),
             app_name=getattr(connected_account, "app_name", None),
             created_at=getattr(connected_account, "created_at", None),
             error_message=getattr(connected_account, "error_message", None)
-            if mapped_status == ConnectionStatus.FAILED
+            if final_status == "FAILED"
             else None,
         )
 

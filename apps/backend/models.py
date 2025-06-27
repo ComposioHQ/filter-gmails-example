@@ -3,7 +3,6 @@
 from datetime import datetime
 from typing import Optional, List, Dict, Any
 from pydantic import BaseModel, Field, ValidationError
-from enum import Enum
 import base64
 import binascii
 import logging
@@ -161,14 +160,6 @@ class ComposioWebhook(BaseModel):
     data: Dict[str, Any]
 
 
-class ConnectionStatus(str, Enum):
-    """Enum for connection status values"""
-
-    ACTIVE = "active"
-    INITIATED = "initiated"
-    FAILED = "failed"
-    EXPIRED = "expired"
-    DELETED = "deleted"
 
 
 class ConnectionRequest(BaseModel):
@@ -187,8 +178,8 @@ class ConnectionResponse(BaseModel):
     redirect_url: str = Field(
         ..., description="The OAuth redirect URL for user authentication"
     )
-    status: ConnectionStatus = Field(
-        ..., description="The current status of the connection"
+    status: str = Field(
+        ..., description="The current status of the connection (INITIATED, ACTIVE, FAILED, EXPIRED, REVOKED)"
     )
 
 
@@ -196,8 +187,8 @@ class ConnectionStatusResponse(BaseModel):
     """Response model for connection status check"""
 
     user_id: str = Field(..., description="The user ID associated with the connection")
-    status: ConnectionStatus = Field(
-        ..., description="The current status of the connection"
+    status: str = Field(
+        ..., description="The current status of the connection (INITIATED, ACTIVE, FAILED, EXPIRED, REVOKED)"
     )
     connected: bool = Field(..., description="Whether the connection is active")
     connection_id: Optional[str] = Field(

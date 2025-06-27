@@ -54,11 +54,11 @@ export function useConnection(userId: string): UseConnectionReturn {
               .eq('id', data.id)
           }
           
-          setIsActive(status.status === 'active')
+          setIsActive(status.status === 'ACTIVE')
           setConnection({ ...data, connection_status: status.status })
         } catch (err) {
           console.error('Failed to check connection status:', err)
-          setIsActive(data.connection_status === 'active')
+          setIsActive(data.connection_status === 'ACTIVE')
         }
       } else {
         setConnection(null)
@@ -78,12 +78,12 @@ export function useConnection(userId: string): UseConnectionReturn {
 
   // Poll for status if connection is initiated
   useEffect(() => {
-    if (connection?.connection_status === 'initiated') {
+    if (connection?.connection_status === 'INITIATED') {
       const interval = setInterval(async () => {
         try {
           const status = await checkConnectionStatus(connection.connected_account_id)
           
-          if (status.status !== 'initiated') {
+          if (status.status !== 'INITIATED') {
             // Update status in Supabase
             await supabase
               .from('connections')
@@ -91,7 +91,7 @@ export function useConnection(userId: string): UseConnectionReturn {
               .eq('id', connection.id)
             
             setConnection({ ...connection, connection_status: status.status })
-            setIsActive(status.status === 'active')
+            setIsActive(status.status === 'ACTIVE')
             
             // Stop polling if status changed
             clearInterval(interval)

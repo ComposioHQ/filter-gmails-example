@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { createConnectionWithSupabase, checkConnectionStatusViaNextJS } from "@/lib/api";
+import { createConnection, checkConnectionStatus } from "@/lib/api";
 import {
   Dialog,
   DialogContent,
@@ -37,7 +37,7 @@ export function ConnectionModal({
 
       // Create connection via API (handles both Composio and Supabase)
       const { connection_id, redirect_url } =
-        await createConnectionWithSupabase(userId);
+        await createConnection(userId);
 
       setConnectionId(connection_id);
 
@@ -46,7 +46,7 @@ export function ConnectionModal({
 
       // Start polling for connection status
       setIsPolling(true);
-      setConnectionStatus("initiated");
+      setConnectionStatus("INITIATED");
     } catch (err) {
       console.error("Connection error:", err);
       setError(err instanceof Error ? err.message : "Failed to connect Gmail");
@@ -71,22 +71,22 @@ export function ConnectionModal({
 
     const checkStatus = async () => {
       try {
-        const status = await checkConnectionStatusViaNextJS(connectionId);
+        const status = await checkConnectionStatus(connectionId);
         setConnectionStatus(status.status);
 
-        if (status.status === "active") {
+        if (status.status === "ACTIVE") {
           setIsPolling(false);
           setIsConnecting(false);
           // Wait a moment to show success state, then call completion
           setTimeout(() => {
             onConnectionComplete();
           }, 1500);
-        } else if (status.status === "failed") {
+        } else if (status.status === "FAILED") {
           setIsPolling(false);
           setIsConnecting(false);
           setError("Connection failed. Please try again.");
         }
-        // Continue polling if status is "initiated"
+        // Continue polling if status is "INITIATED"
       } catch (err) {
         console.error("Error checking connection status:", err);
         // Don't show error immediately, just continue polling
@@ -116,7 +116,7 @@ export function ConnectionModal({
             Connect Your Gmail Account
           </DialogTitle>
           <DialogDescription>
-            {connectionStatus === "active" ? (
+            {connectionStatus === "ACTIVE" ? (
               "Your Gmail account is successfully connected!"
             ) : (
               "Connect your Gmail account to start using AI-powered email labelling. Your emails will be automatically categorized based on your custom prompts."
