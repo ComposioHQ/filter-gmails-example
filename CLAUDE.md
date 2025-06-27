@@ -76,7 +76,8 @@ pnpm gen:types            # Generate TypeScript types from Supabase schema
 3. Frontend prompt management is implemented - backend Gmail integration pending
 4. Frontend uses ESLint 9 with Next.js configuration
 5. Supabase project ID: `eweoycxhqpmmihbujhdc`
-6. Database schema includes `prompts` table for storing user AI prompts
+6. Database schema includes `prompts` and `connections` tables - see `/apps/SUPABASE_SETUP.md` for schema
+7. **IMPORTANT**: When making changes to database schema, always update `/apps/SUPABASE_SETUP.md` to keep documentation in sync
 
 ## Composio
 

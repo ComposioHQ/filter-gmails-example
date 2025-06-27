@@ -2,66 +2,103 @@
 
 AI-powered Gmail automation using [Composio SDK](https://composio.dev). Automatically label emails based on custom prompts.
 
-## <“ What You'll Learn
+## Tech Stack
+
+- **Frontend**: Next.js 15, React 19, TypeScript, Tailwind CSS
+- **Backend**: Python/FastAPI, OpenAI Agents SDK
+- **Database**: Supabase (PostgreSQL with RLS)
+- **AI Integration**: Composio SDK for Gmail tools
+
+## What You'll Learn
 
 - Authenticate and use Gmail tools via Composio SDK
 - Implement OAuth flows with connection tracking
 - Build AI agents that interact with authenticated APIs
 - Set up real-time triggers for email processing
 
-## =€ Quick Start
+## Prerequisites
 
-### Prerequisites
-- Python 3.13+ with [uv](https://github.com/astral-sh/uv)
-- Node.js 18+ with pnpm
-- [Composio](https://app.composio.dev) API key
-- [Supabase](https://supabase.com) project
-- [ngrok](https://ngrok.com) for webhooks
+1. **System Requirements**
+   - Python 3.13+ with [uv](https://github.com/astral-sh/uv) package manager
+   - Node.js 18+ with pnpm
+   - [ngrok](https://ngrok.com) for local webhook testing
+
+2. **API Keys & Accounts**
+   - **Composio API Key**: Get it from [app.composio.dev/developers](https://app.composio.dev/developers)
+   - **Supabase Project**: Create at [supabase.com](https://supabase.com)
+   - **Anthropic API Key**: For Claude models (or use OpenAI/other LLMs)
+
+## Environment Variables
+
+### Backend (.env)
+```bash
+COMPOSIO_API_KEY=          # From app.composio.dev/developers
+SUPABASE_URL=              # Your Supabase project URL
+SUPABASE_SERVICE_KEY=      # Service role key (not anon key!)
+GMAIL_AUTH_CONFIG_ID=      # From Composio Gmail integration
+ANTHROPIC_API_KEY=         # Your LLM provider key
+```
+
+### Frontend (.env.local)
+```bash
+NEXT_PUBLIC_API_URL=http://localhost:8000
+NEXT_PUBLIC_SUPABASE_URL=  # Same as backend SUPABASE_URL
+NEXT_PUBLIC_SUPABASE_ANON_KEY=  # Anon key (not service key!)
+NEXT_PUBLIC_ENABLE_CONNECTION_MODAL=true
+```
+
+## Quick Start
 
 ### 1. Clone & Setup Database
 
 ```bash
 git clone https://github.com/composiohq/demos
 cd demos/gmail-labeller
-
-# Create Supabase project and run migrations from:
-# supabase/migrations/20250126220821_create_tables.sql
 ```
 
-### 2. Backend Setup
+Set up your Supabase database by following the instructions in [apps/SUPABASE_SETUP.md](apps/SUPABASE_SETUP.md)
+
+### 2. Get Your API Keys
+
+1. **Composio API Key**
+   - Go to [app.composio.dev/developers](https://app.composio.dev/developers)
+   - Create new API key
+   - Set up Gmail integration in Composio dashboard
+
+2. **Supabase Keys**
+   - Create project at [supabase.com](https://supabase.com)
+   - Get both `anon` key (frontend) and `service_role` key (backend)
+   - Note your project URL
+
+### 3. Backend Setup
 
 ```bash
 cd apps/backend
 uv sync
 
-# Create .env
-COMPOSIO_API_KEY=your-key
-SUPABASE_URL=https://your-project.supabase.co
-SUPABASE_SERVICE_KEY=your-service-key
-GMAIL_AUTH_CONFIG_ID=your-gmail-config
-ANTHROPIC_API_KEY=your-llm-key
+# Create .env with your keys
+cp .env.example .env
+# Edit .env with your actual keys
 
 # Run server
 uvicorn main:app --reload
 ```
 
-### 3. Frontend Setup
+### 4. Frontend Setup
 
 ```bash
 cd apps/frontend
 pnpm install
 
-# Create .env.local
-NEXT_PUBLIC_API_URL=http://localhost:8000
-NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
-NEXT_PUBLIC_ENABLE_CONNECTION_MODAL=true
+# Create .env.local with your keys
+cp .env.example .env.local
+# Edit .env.local with your actual keys
 
 # Run app
 pnpm dev
 ```
 
-### 4. Enable Webhooks
+### 5. Enable Webhooks
 
 ```bash
 # Expose local backend for Gmail webhooks
@@ -70,7 +107,7 @@ ngrok http 8000
 # Use the ngrok URL in your Composio webhook configuration
 ```
 
-## =Ú Key Concepts
+## Key Concepts
 
 ### Gmail Tool Usage
 ```python
@@ -87,7 +124,7 @@ await Runner.run(agent, email_content)
 
 ### Connection Flow
 ```typescript
-// Status values: INITIATED ’ ACTIVE ’ FAILED/EXPIRED/REVOKED
+// Status values: INITIATED -> ACTIVE -> FAILED/EXPIRED/REVOKED
 const status = await checkConnectionStatus(connectionId)
 ```
 
@@ -100,17 +137,17 @@ composio.triggers.create(
 )
 ```
 
-## <× Architecture
+## Architecture
 
 ```
-Next.js Frontend ’ FastAPI Backend ’ Composio SDK ’ Gmail API
-                         “
+Next.js Frontend -> FastAPI Backend -> Composio SDK -> Gmail API
+                         |
                     Supabase DB
 ```
 
-## =Ý License
+## License
 
-MIT - Use freely in your projects!
+MIT - Use freely in your projects\!
 
 ---
 
