@@ -1,66 +1,111 @@
-'use client'
+"use client";
 
-import { useState } from 'react'
-import { createClient } from '@/lib/supabase/client'
-import { createConnection } from '@/lib/api'
+import { useState, useEffect, useRef } from "react";
+import { createConnectionWithSupabase, checkConnectionStatusViaNextJS } from "@/lib/api";
 import {
   Dialog,
   DialogContent,
   DialogDescription,
   DialogHeader,
   DialogTitle,
-} from '@/components/ui/dialog'
-import { Button } from '@/components/ui/button'
-import { Loader2, Mail } from 'lucide-react'
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Loader2, Mail, CheckCircle } from "lucide-react";
 
 interface ConnectionModalProps {
-  userId: string
-  open: boolean
-  onConnectionComplete: () => void
+  userId: string;
+  open: boolean;
+  onConnectionComplete: () => void;
 }
 
-export function ConnectionModal({ userId, open, onConnectionComplete }: ConnectionModalProps) {
-  const [isConnecting, setIsConnecting] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  
-  const supabase = createClient()
+export function ConnectionModal({
+  userId,
+  open,
+  onConnectionComplete,
+}: ConnectionModalProps) {
+  const [isConnecting, setIsConnecting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [connectionId, setConnectionId] = useState<string | null>(null);
+  const [isPolling, setIsPolling] = useState(false);
+  const [connectionStatus, setConnectionStatus] = useState<string | null>(null);
+  const pollingInterval = useRef<NodeJS.Timeout | null>(null);
 
   const handleConnect = async () => {
     try {
-      setIsConnecting(true)
-      setError(null)
+      setIsConnecting(true);
+      setError(null);
 
-      // Create connection via API
-      const { connection_id, redirect_url } = await createConnection(userId)
+      // Create connection via API (handles both Composio and Supabase)
+      const { connection_id, redirect_url } =
+        await createConnectionWithSupabase(userId);
 
-      // Save connection to Supabase
-      const { error: supabaseError } = await supabase
-        .from('connections')
-        .insert({
-          user_id: userId,
-          connected_account_id: connection_id,
-          connection_status: 'initiated',
-        })
+      setConnectionId(connection_id);
 
-      if (supabaseError) {
-        throw new Error('Failed to save connection')
-      }
+      // Open in new tab
+      window.open(redirect_url, "_blank", "noopener,noreferrer");
 
-      // Try to open in new tab
-      const newWindow = window.open(redirect_url, '_blank', 'noopener,noreferrer')
-      
-      // If popup was blocked, redirect in same tab
-      if (!newWindow || newWindow.closed || typeof newWindow.closed === 'undefined') {
-        window.location.href = redirect_url
-      } else {
-        // Start polling for connection status
-        onConnectionComplete()
-      }
+      // Start polling for connection status
+      setIsPolling(true);
+      setConnectionStatus("initiated");
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to connect Gmail')
-      setIsConnecting(false)
+      console.error("Connection error:", err);
+      setError(err instanceof Error ? err.message : "Failed to connect Gmail");
+      setIsConnecting(false);
     }
-  }
+  };
+
+  // Reset states when modal closes
+  useEffect(() => {
+    if (!open) {
+      setIsConnecting(false);
+      setIsPolling(false);
+      setConnectionStatus(null);
+      setConnectionId(null);
+      setError(null);
+    }
+  }, [open]);
+
+  // Polling effect
+  useEffect(() => {
+    if (!isPolling || !connectionId) return;
+
+    const checkStatus = async () => {
+      try {
+        const status = await checkConnectionStatusViaNextJS(connectionId);
+        setConnectionStatus(status.status);
+
+        if (status.status === "active") {
+          setIsPolling(false);
+          setIsConnecting(false);
+          // Wait a moment to show success state, then call completion
+          setTimeout(() => {
+            onConnectionComplete();
+          }, 1500);
+        } else if (status.status === "failed") {
+          setIsPolling(false);
+          setIsConnecting(false);
+          setError("Connection failed. Please try again.");
+        }
+        // Continue polling if status is "initiated"
+      } catch (err) {
+        console.error("Error checking connection status:", err);
+        // Don't show error immediately, just continue polling
+        // The connection might still be initializing
+      }
+    };
+
+    // Initial check
+    checkStatus();
+
+    // Set up polling interval
+    pollingInterval.current = setInterval(checkStatus, 2000);
+
+    return () => {
+      if (pollingInterval.current) {
+        clearInterval(pollingInterval.current);
+      }
+    };
+  }, [isPolling, connectionId, onConnectionComplete]);
 
   return (
     <Dialog open={open}>
@@ -71,41 +116,71 @@ export function ConnectionModal({ userId, open, onConnectionComplete }: Connecti
             Connect Your Gmail Account
           </DialogTitle>
           <DialogDescription>
-            Connect your Gmail account to start using AI-powered email labelling. Your emails will be automatically categorized based on your custom prompts.
+            {connectionStatus === "active" ? (
+              "Your Gmail account is successfully connected!"
+            ) : (
+              "Connect your Gmail account to start using AI-powered email labelling. Your emails will be automatically categorized based on your custom prompts."
+            )}
           </DialogDescription>
         </DialogHeader>
-        
+
         <div className="mt-6 space-y-4">
           {error && (
             <div className="p-3 text-sm text-destructive bg-destructive/10 rounded-md">
               {error}
             </div>
           )}
-          
-          <Button 
-            onClick={handleConnect} 
-            disabled={isConnecting}
-            className="w-full"
-            size="lg"
-          >
-            {isConnecting ? (
-              <>
-                <Loader2 className="mr-2 size-4 animate-spin" />
-                Connecting...
-              </>
-            ) : (
-              <>
-                <Mail className="mr-2 size-4" />
-                Connect Gmail!
-              </>
-            )}
-          </Button>
-          
-          <p className="text-xs text-center text-muted-foreground">
-            You&apos;ll be redirected to Google to authorize access. We only request permissions to read and label your emails.
-          </p>
+
+          {connectionStatus === "active" ? (
+            <div className="flex flex-col items-center space-y-4">
+              <CheckCircle className="size-16 text-green-500" />
+              <p className="text-center text-sm text-muted-foreground">
+                Gmail connected successfully! Redirecting...
+              </p>
+            </div>
+          ) : (
+            <>
+              <Button
+                onClick={handleConnect}
+                disabled={isConnecting || isPolling}
+                className="w-full"
+                size="lg"
+              >
+                {isPolling ? (
+                  <>
+                    <Loader2 className="mr-2 size-4 animate-spin" />
+                    Waiting for authorization...
+                  </>
+                ) : isConnecting ? (
+                  <>
+                    <Loader2 className="mr-2 size-4 animate-spin" />
+                    Connecting...
+                  </>
+                ) : (
+                  <>
+                    <Mail className="mr-2 size-4" />
+                    Connect Gmail!
+                  </>
+                )}
+              </Button>
+
+              {isPolling && (
+                <p className="text-xs text-center text-muted-foreground">
+                  Please complete the authorization in the new tab. We&apos;re
+                  checking the connection status...
+                </p>
+              )}
+
+              {!isPolling && !isConnecting && (
+                <p className="text-xs text-center text-muted-foreground">
+                  You&apos;ll be redirected to Google to authorize access. We only
+                  request permissions to read and label your emails.
+                </p>
+              )}
+            </>
+          )}
         </div>
       </DialogContent>
     </Dialog>
-  )
+  );
 }

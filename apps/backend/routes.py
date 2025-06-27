@@ -9,7 +9,7 @@ from models import (
     ConnectionRequest,
     ConnectionResponse,
     ConnectionStatus,
-    ConnectionStatusResponse
+    ConnectionStatusResponse,
 )
 
 logger = logging.getLogger(__name__)
@@ -32,17 +32,18 @@ async def create_connection(request: ConnectionRequest):
     """
     try:
         logger.info(f"Initiating Gmail connection for user: {request.user_id}")
+        logger.info(f"Auth Config ID: {GMAIL_AUTH_CONFIG_ID}")
 
         # Initiate connection with Composio
         connection_request = composio.connected_accounts.initiate(
             user_id=request.user_id,
             auth_config_id=GMAIL_AUTH_CONFIG_ID,
-            config=auth_scheme.oauth2(options={}),
         )
 
         # Map the connection status
         status_map = {
             "initiated": ConnectionStatus.INITIATED,
+            "initializing": ConnectionStatus.INITIATED,  # Map INITIALIZING to INITIATED
             "active": ConnectionStatus.ACTIVE,
             "failed": ConnectionStatus.FAILED,
             "expired": ConnectionStatus.EXPIRED,
@@ -84,7 +85,9 @@ async def get_connection(nano_id: str):
         # Map the connection status from Composio to our enum
         status_map = {
             "active": ConnectionStatus.ACTIVE,
+            "connected": ConnectionStatus.ACTIVE,  # Map CONNECTED to ACTIVE
             "initiated": ConnectionStatus.INITIATED,
+            "initializing": ConnectionStatus.INITIATED,  # Map INITIALIZING to INITIATED
             "failed": ConnectionStatus.FAILED,
             "expired": ConnectionStatus.EXPIRED,
             "deleted": ConnectionStatus.DELETED,
@@ -92,7 +95,15 @@ async def get_connection(nano_id: str):
 
         # Extract status from the connected account object
         composio_status = getattr(connected_account, "status", "unknown").lower()
-        mapped_status = status_map.get(composio_status, ConnectionStatus.FAILED)
+        
+        # Also check the nested state.val.status for OAuth status
+        oauth_status = None
+        if hasattr(connected_account, "state") and hasattr(connected_account.state, "val") and hasattr(connected_account.state.val, "status"):
+            oauth_status = connected_account.state.val.status.lower()
+        
+        # Use the OAuth status if available, otherwise use the main status
+        final_status = oauth_status if oauth_status else composio_status
+        mapped_status = status_map.get(final_status, ConnectionStatus.FAILED)
 
         # Build the response
         return ConnectionStatusResponse(

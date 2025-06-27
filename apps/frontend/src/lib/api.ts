@@ -33,11 +33,39 @@ export async function createConnection(userId: string): Promise<ConnectionRespon
   return response.json()
 }
 
+export async function createConnectionWithSupabase(userId: string): Promise<ConnectionResponse> {
+  const response = await fetch('/api/connections', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ user_id: userId }),
+  })
+
+  if (!response.ok) {
+    const error = await response.json()
+    throw new Error(error.error || `Failed to create connection: ${response.statusText}`)
+  }
+
+  return response.json()
+}
+
 export async function checkConnectionStatus(nanoId: string): Promise<ConnectionStatusResponse> {
   const response = await fetch(`${API_URL}/api/connection/?nano_id=${nanoId}`)
 
   if (!response.ok) {
     throw new Error(`Failed to check connection status: ${response.statusText}`)
+  }
+
+  return response.json()
+}
+
+export async function checkConnectionStatusViaNextJS(nanoId: string): Promise<ConnectionStatusResponse> {
+  const response = await fetch(`/api/connections?nano_id=${nanoId}`)
+
+  if (!response.ok) {
+    const error = await response.json()
+    throw new Error(error.error || `Failed to check connection status: ${response.statusText}`)
   }
 
   return response.json()
